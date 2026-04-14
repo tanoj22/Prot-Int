@@ -1,0 +1,243 @@
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:#050510;color:#fff;overflow-x:hidden}
+canvas#bg{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0}
+.hero{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:2rem}
+.hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 50%,rgba(5,5,16,0.85) 0%,rgba(5,5,16,0.5) 35%,transparent 70%),radial-gradient(ellipse at 30% 70%,rgba(16,185,129,0.05) 0%,transparent 50%),radial-gradient(ellipse at 70% 30%,rgba(6,182,212,0.05) 0%,transparent 50%);pointer-events:none;z-index:0}
+.hero>*{position:relative;z-index:1}
+.logo{font-size:13px;letter-spacing:4px;text-transform:uppercase;color:rgba(255,255,255,0.3);margin-bottom:1.5rem;font-weight:400}
+h1{font-size:clamp(40px,7vw,72px);font-weight:500;letter-spacing:-1.5px;margin-bottom:1.2rem;line-height:1.05;text-shadow:0 0 40px rgba(0,0,0,0.9),0 0 80px rgba(0,0,0,0.7)}
+h1 span{background:linear-gradient(135deg,#22D3EE,#34D399);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 0 20px rgba(34,211,238,0.4))}
+.pills{display:flex;gap:24px;flex-wrap:wrap;justify-content:center;margin-bottom:2.5rem}
+.pill{font-size:11px;padding:0;border:none;color:rgba(255,255,255,0.3);background:none;letter-spacing:2px;text-transform:uppercase;font-weight:400;position:relative}
+.pill::before{content:'';display:inline-block;width:5px;height:5px;border-radius:50%;margin-right:8px;vertical-align:middle;box-shadow:0 0 6px rgba(34,211,238,0.5)}
+.pill:nth-child(1)::before{background:#22D3EE}
+.pill:nth-child(2)::before{background:#34D399}
+.pill:nth-child(3)::before{background:#6EE7B7}
+.btns{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+.btn{font-size:14px;padding:10px 28px;border-radius:8px;text-decoration:none;font-weight:500;transition:all 0.3s;cursor:pointer;border:none}
+.btn-p{background:linear-gradient(135deg,#06B6D4,#10B981);color:#fff}
+.btn-p:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(16,185,129,0.3)}
+.btn-s{background:transparent;border:1px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.6)}
+.btn-s:hover{border-color:rgba(255,255,255,0.4);color:#fff}
+.scroll-hint{position:absolute;bottom:2rem;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:8px;color:rgba(255,255,255,0.2);font-size:10px;letter-spacing:1px;animation:bob 2s infinite}
+@keyframes bob{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(6px)}}
+.chevron{width:16px;height:16px;border-right:1.5px solid rgba(255,255,255,0.2);border-bottom:1.5px solid rgba(255,255,255,0.2);transform:rotate(45deg)}
+section{position:relative;z-index:1}
+.features{background:rgba(255,255,255,0.015);border-top:1px solid rgba(255,255,255,0.04);padding:5rem 2rem}
+.feat-grid{max-width:960px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:2rem}
+.feat-card{padding:2rem;border-radius:12px;border:1px solid rgba(255,255,255,0.05);background:rgba(255,255,255,0.015);transition:all 0.5s cubic-bezier(0.16,1,0.3,1)}
+.feat-card:hover{border-color:rgba(34,211,238,0.2);background:rgba(16,185,129,0.03);transform:translateY(-6px)}
+.feat-card:hover .feat-icon{transform:scale(1.1)}
+.feat-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;margin-bottom:1rem;transition:transform 0.4s cubic-bezier(0.16,1,0.3,1)}
+.feat-icon svg{width:22px;height:22px}
+.feat-card h3{font-size:17px;font-weight:500;margin-bottom:0.7rem;color:#fff;letter-spacing:-0.3px}
+.feat-card p{font-size:13px;color:rgba(255,255,255,0.4);line-height:1.8;font-weight:400;letter-spacing:0.3px}
+.pipeline{background:#050510;padding:5rem 2rem;border-top:1px solid rgba(255,255,255,0.04)}
+.pipeline h2{text-align:center;font-size:22px;font-weight:500;margin-bottom:3rem;color:rgba(255,255,255,0.7)}
+.pipe-wrap{max-width:900px;margin:0 auto;display:flex;align-items:center;justify-content:center;gap:0;flex-wrap:wrap}
+.pipe-node{padding:12px 18px;border-radius:10px;font-size:12px;font-weight:500;text-align:center;min-width:100px}
+.pipe-node span{display:block;font-size:10px;font-weight:400;color:rgba(255,255,255,0.35);margin-top:3px}
+.pn-1{background:rgba(34,211,238,0.08);border:1px solid rgba(34,211,238,0.2);color:#22D3EE}
+.pn-2{background:rgba(16,185,129,0.08);border:1px solid rgba(52,211,153,0.2);color:#34D399}
+.pipe-arrow{color:rgba(255,255,255,0.12);font-size:18px;padding:0 6px;flex-shrink:0}
+.stats{background:rgba(255,255,255,0.015);padding:4rem 2rem;border-top:1px solid rgba(255,255,255,0.04)}
+.stat-grid{max-width:800px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:1.5rem}
+.stat{text-align:center;padding:1.5rem 1rem}
+.stat-num{font-size:28px;font-weight:500;background:linear-gradient(135deg,#22D3EE,#34D399);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.stat-lbl{font-size:12px;color:rgba(255,255,255,0.35);margin-top:4px}
+footer{text-align:center;padding:3rem 2rem;border-top:1px solid rgba(255,255,255,0.04);color:rgba(255,255,255,0.25);font-size:12px}
+footer a{color:rgba(34,211,238,0.6);text-decoration:none}
+footer a:hover{color:#22D3EE}
+.fade-in{opacity:0;transform:translateY(30px);transition:all 0.8s cubic-bezier(0.16,1,0.3,1)}
+.fade-in.visible{opacity:1;transform:translateY(0)}
+@media(max-width:600px){.stat-grid{grid-template-columns:repeat(2,1fr)}.pipe-wrap{flex-direction:column;gap:8px}.pipe-arrow{transform:rotate(90deg)}}
+</style>
+
+<canvas id="bg"></canvas>
+
+<div class="hero">
+<div class="logo">Protein intelligence</div>
+<h1>Prot<span>Loc</span>-AI</h1>
+<div class="pills">
+<div class="pill">Prediction</div>
+<div class="pill">Mutation analysis</div>
+<div class="pill">Explainability</div>
+</div>
+<div class="btns">
+<a class="btn btn-p" href="#">Launch app</a>
+<a class="btn btn-s" href="#">View on GitHub</a>
+</div>
+<div class="scroll-hint"><div class="chevron"></div></div>
+</div>
+
+<section class="features">
+<div class="feat-grid fade-in">
+<div class="feat-card">
+<div class="feat-icon" style="background:rgba(34,211,238,0.1)">
+<svg viewBox="0 0 24 24" fill="none" stroke="#22D3EE" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/><circle cx="12" cy="12" r="4"/></svg>
+</div>
+<h3>Localization prediction</h3>
+<p>11 compartments. One sequence. Instant classification powered by a 650M-parameter protein language model.</p>
+</div>
+<div class="feat-card">
+<div class="feat-icon" style="background:rgba(52,211,153,0.1)">
+<svg viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="1.5"><path d="M9 3L5 7l4 4"/><path d="M15 3l4 4-4 4"/><rect x="3" y="15" width="18" height="6" rx="2"/></svg>
+</div>
+<h3>Variant effect analysis</h3>
+<p>Input a mutation. See which compartments gain or lose the protein. Flag mislocalization risk before it reaches the lab.</p>
+</div>
+<div class="feat-card">
+<div class="feat-icon" style="background:rgba(216,90,48,0.1)">
+<svg viewBox="0 0 24 24" fill="none" stroke="#F0997B" stroke-width="1.5"><path d="M2 12h4l3-9 4 18 3-9h6"/></svg>
+</div>
+<h3>Residue interpretability</h3>
+<p>Every prediction explained at single-residue resolution. Learned attention highlights the signal peptides, NLS motifs, and transmembrane domains driving each call.</p>
+</div>
+</div>
+</section>
+
+<section class="stats">
+<div class="stat-grid fade-in">
+<div class="stat"><div class="stat-num">28,303</div><div class="stat-lbl">Proteins trained</div></div>
+<div class="stat"><div class="stat-num">11</div><div class="stat-lbl">Compartments</div></div>
+<div class="stat"><div class="stat-num">0.93</div><div class="stat-lbl">AUROC</div></div>
+<div class="stat"><div class="stat-num">650M</div><div class="stat-lbl">ESM-2 parameters</div></div>
+</div>
+</section>
+
+<footer>
+<p>Built with ESM-2, PyTorch, FastAPI, Streamlit</p>
+<p style="margin-top:8px"><a href="#">GitHub</a> &middot; Created by [Your Name]</p>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const canvas=document.getElementById('bg');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.setSize(window.innerWidth,window.innerHeight);
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(55,window.innerWidth/window.innerHeight,0.1,1000);
+camera.position.set(0,0,30);
+const ambLight=new THREE.AmbientLight(0x334455,0.6);
+scene.add(ambLight);
+const dirLight=new THREE.DirectionalLight(0x22D3EE,0.8);
+dirLight.position.set(5,10,7);
+scene.add(dirLight);
+const dirLight2=new THREE.DirectionalLight(0x10B981,0.5);
+dirLight2.position.set(-5,-5,5);
+scene.add(dirLight2);
+const proteinGroup=new THREE.Group();
+scene.add(proteinGroup);
+const nRes=80;
+const helixR=3.5;
+const helixP=0.35;
+const helixY=0.18;
+const points=[];
+for(let i=0;i<nRes;i++){
+const t=i*helixP;
+const x=helixR*Math.cos(t);
+const z=helixR*Math.sin(t);
+const y=(i-nRes/2)*helixY;
+points.push(new THREE.Vector3(x,y,z));
+}
+for(let i=0;i<points.length;i++){
+const frac=i/points.length;
+const col=new THREE.Color().lerpColors(new THREE.Color(0x22D3EE),new THREE.Color(0x34D399),frac);
+const geo=new THREE.SphereGeometry(0.28,12,12);
+const mat=new THREE.MeshPhongMaterial({color:col,emissive:col,emissiveIntensity:0.2,shininess:80});
+const sphere=new THREE.Mesh(geo,mat);
+sphere.position.copy(points[i]);
+proteinGroup.add(sphere);
+if(i>0){
+const dir=new THREE.Vector3().subVectors(points[i],points[i-1]);
+const len=dir.length();
+const cGeo=new THREE.CylinderGeometry(0.08,0.08,len,6);
+const cMat=new THREE.MeshPhongMaterial({color:col,emissive:col,emissiveIntensity:0.1,transparent:true,opacity:0.6});
+const cyl=new THREE.Mesh(cGeo,cMat);
+const mid=new THREE.Vector3().addVectors(points[i],points[i-1]).multiplyScalar(0.5);
+cyl.position.copy(mid);
+cyl.lookAt(points[i]);
+cyl.rotateX(Math.PI/2);
+proteinGroup.add(cyl);
+}
+}
+const sideChainEvery=4;
+for(let i=0;i<points.length;i+=sideChainEvery){
+const frac=i/points.length;
+const col=new THREE.Color().lerpColors(new THREE.Color(0x22D3EE),new THREE.Color(0x34D399),frac);
+const center=new THREE.Vector3(0,points[i].y,0);
+const outDir=new THREE.Vector3().subVectors(points[i],center).normalize();
+const scLen=0.8+Math.random()*1.2;
+const endPt=new THREE.Vector3().copy(points[i]).add(outDir.clone().multiplyScalar(scLen));
+const sGeo=new THREE.SphereGeometry(0.18,8,8);
+const sMat=new THREE.MeshPhongMaterial({color:col,emissive:col,emissiveIntensity:0.2,transparent:true,opacity:0.7});
+const sSphere=new THREE.Mesh(sGeo,sMat);
+sSphere.position.copy(endPt);
+proteinGroup.add(sSphere);
+const bDir=new THREE.Vector3().subVectors(endPt,points[i]);
+const bLen=bDir.length();
+const bGeo=new THREE.CylinderGeometry(0.04,0.04,bLen,4);
+const bMat=new THREE.MeshPhongMaterial({color:col,transparent:true,opacity:0.3});
+const bCyl=new THREE.Mesh(bGeo,bMat);
+const bMid=new THREE.Vector3().addVectors(points[i],endPt).multiplyScalar(0.5);
+bCyl.position.copy(bMid);
+bCyl.lookAt(endPt);
+bCyl.rotateX(Math.PI/2);
+proteinGroup.add(bCyl);
+}
+const pCount=300;
+const pGeo=new THREE.BufferGeometry();
+const pPos=new Float32Array(pCount*3);
+const pVel=new Float32Array(pCount*3);
+for(let i=0;i<pCount;i++){
+pPos[i*3]=(Math.random()-0.5)*60;
+pPos[i*3+1]=(Math.random()-0.5)*40;
+pPos[i*3+2]=(Math.random()-0.5)*40;
+pVel[i*3]=(Math.random()-0.5)*0.005;
+pVel[i*3+1]=(Math.random()-0.5)*0.005;
+pVel[i*3+2]=(Math.random()-0.5)*0.005;
+}
+pGeo.setAttribute('position',new THREE.BufferAttribute(pPos,3));
+const pMat=new THREE.PointsMaterial({color:0x22D3EE,size:0.08,transparent:true,opacity:0.3});
+const particleSys=new THREE.Points(pGeo,pMat);
+scene.add(particleSys);
+let mouseX=0,mouseY=0;
+document.addEventListener('mousemove',(e)=>{
+mouseX=(e.clientX/window.innerWidth-0.5)*2;
+mouseY=(e.clientY/window.innerHeight-0.5)*2;
+});
+let scrollY=0;
+window.addEventListener('scroll',()=>{scrollY=window.scrollY});
+window.addEventListener('resize',()=>{
+camera.aspect=window.innerWidth/window.innerHeight;
+camera.updateProjectionMatrix();
+renderer.setSize(window.innerWidth,window.innerHeight);
+});
+function animate(){
+requestAnimationFrame(animate);
+const t=performance.now()*0.001;
+proteinGroup.rotation.y=t*0.15+mouseX*0.3;
+proteinGroup.rotation.x=Math.sin(t*0.1)*0.1+mouseY*0.2;
+proteinGroup.position.y=0;
+const pos=pGeo.attributes.position.array;
+for(let i=0;i<pCount;i++){
+pos[i*3]+=pVel[i*3];
+pos[i*3+1]+=pVel[i*3+1];
+pos[i*3+2]+=pVel[i*3+2];
+if(Math.abs(pos[i*3])>30)pVel[i*3]*=-1;
+if(Math.abs(pos[i*3+1])>20)pVel[i*3+1]*=-1;
+if(Math.abs(pos[i*3+2])>20)pVel[i*3+2]*=-1;
+}
+pGeo.attributes.position.needsUpdate=true;
+const fade=Math.max(0,1-scrollY/600);
+renderer.domElement.style.opacity=0.4+fade*0.6;
+renderer.render(scene,camera);
+}
+animate();
+const observer=new IntersectionObserver((entries)=>{
+entries.forEach(e=>{if(e.isIntersecting)e.target.classList.add('visible')});
+},{threshold:0.15});
+document.querySelectorAll('.fade-in').forEach(el=>observer.observe(el));
+</script>

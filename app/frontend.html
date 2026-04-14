@@ -1,0 +1,2489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ProtLoc-AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.0/plotly.min.js"></script>
+  <style>
+    :root {
+      --bg: #050510;
+      --panel-bg: rgba(8, 8, 24, 0.8);
+      --input-bg: #0a0f1e;
+      --input-border: #1a2235;
+      --input-focus-border: #22D3EE;
+      --input-focus-glow: 0 0 20px rgba(34, 211, 238, 0.08);
+      --primary: #22D3EE;
+      --secondary: #34D399;
+      --text: #ffffff;
+      --text-secondary: rgba(255, 255, 255, 0.5);
+      --text-muted: rgba(255, 255, 255, 0.25);
+      --card-border: rgba(255, 255, 255, 0.05);
+      --card-border-hover: rgba(34, 211, 238, 0.18);
+      --btn-grad: linear-gradient(135deg, #06B6D4, #10B981);
+      --risk-high-bg: rgba(220, 38, 38, 0.1);
+      --risk-high-border: rgba(220, 38, 38, 0.2);
+      --risk-high-text: #fca5a5;
+      --risk-med-bg: rgba(245, 158, 11, 0.08);
+      --risk-med-border: rgba(245, 158, 11, 0.15);
+      --risk-med-text: #fcd34d;
+      --risk-low-bg: rgba(34, 211, 238, 0.06);
+      --risk-low-border: rgba(34, 211, 238, 0.1);
+      --risk-low-text: #22D3EE;
+      --risk-none-bg: rgba(255, 255, 255, 0.02);
+      --risk-none-border: rgba(255, 255, 255, 0.06);
+      --ease: cubic-bezier(0.16, 1, 0.3, 1);
+      --radius-panel: 16px;
+      --radius-input: 8px;
+      --radius-btn-sm: 6px;
+      --radius-card: 10px;
+    }
+
+    * { box-sizing: border-box; }
+    html {
+      scroll-behavior: smooth;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', system-ui, sans-serif;
+      font-weight: 400;
+      overflow: hidden;
+    }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(34, 211, 238, 0.2); border-radius: 3px; }
+
+    #canvas-bg {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+    #canvas-bg canvas { display: block; width: 100%; height: 100%; }
+
+    #vignette {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      background: radial-gradient(ellipse 80% 70% at 50% 45%, rgba(5, 5, 16, 0.85) 0%, transparent 70%);
+    }
+
+    #landing-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 3;
+      width: 100%;
+      height: 100%;
+      overflow-y: auto;
+      overflow-x: hidden;
+      scroll-snap-type: y mandatory;
+      scroll-behavior: smooth;
+      -webkit-overflow-scrolling: touch;
+      opacity: 1;
+      visibility: visible;
+      transition: opacity 600ms cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear 0s;
+    }
+
+    #landing-layer.landing-exit {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 600ms cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear 600ms;
+    }
+
+    .landing-snap-section {
+      scroll-snap-align: start;
+      scroll-snap-stop: normal;
+      min-height: 100vh;
+      box-sizing: border-box;
+      position: relative;
+      padding: 2rem 1.25rem 3rem;
+    }
+
+    .landing-snap-section:not(#hero-section) {
+      opacity: 0;
+      transform: translateY(28px);
+      transition: opacity 0.7s var(--ease), transform 0.7s var(--ease);
+    }
+
+    .landing-snap-section:not(#hero-section).is-visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .feat-section.landing-snap-section {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .stats-section.landing-snap-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .landing-scroll-cue {
+      position: absolute;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 4;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transition: opacity 0.4s var(--ease), visibility 0.4s;
+    }
+
+    .landing-scroll-cue.is-hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .landing-scroll-cue-bob {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      animation: bob 2s ease-in-out infinite;
+    }
+
+    @keyframes bob {
+      0%,
+      100% {
+        transform: translateY(0);
+      }
+      50% {
+        transform: translateY(8px);
+      }
+    }
+
+    .landing-scroll-cue-chevron {
+      width: 0;
+      height: 0;
+      border-left: 12px solid transparent;
+      border-right: 12px solid transparent;
+      border-top: 10px solid rgba(34, 211, 238, 0.35);
+    }
+
+    .landing-scroll-cue-label {
+      margin-top: 0.5rem;
+      font-size: 10px;
+      font-weight: 400;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: rgba(34, 211, 238, 0.25);
+    }
+
+    .stats-built-with {
+      margin: 2rem 0 0;
+      text-align: center;
+      font-size: 11px;
+      font-weight: 400;
+      color: rgba(255, 255, 255, 0.15);
+    }
+
+    .btn-back-top {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 1rem;
+      padding: 10px 24px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 400;
+      color: rgba(34, 211, 238, 0.5);
+      background: transparent;
+      border: 1px solid rgba(34, 211, 238, 0.25);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: border-color 0.25s var(--ease), color 0.25s var(--ease), box-shadow 0.25s var(--ease);
+    }
+
+    .btn-back-top:hover {
+      border-color: rgba(34, 211, 238, 0.45);
+      color: rgba(34, 211, 238, 0.85);
+      box-shadow: 0 0 15px rgba(34, 211, 238, 0.1);
+    }
+
+    .btn-back-top::before {
+      content: '';
+      display: block;
+      width: 0;
+      height: 0;
+      margin-right: 0.45rem;
+      border-left: 4px solid transparent;
+      border-right: 4px solid transparent;
+      border-bottom: 5px solid currentColor;
+    }
+
+    .stats-section-footer {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+    }
+
+    .landing-nav-dots {
+      position: fixed;
+      right: 1rem;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 25;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.65rem;
+      pointer-events: auto;
+    }
+
+    .landing-nav-dot {
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      padding: 0;
+      border: none;
+      cursor: pointer;
+      background: rgba(255, 255, 255, 0.28);
+      transition: background 0.35s var(--ease), box-shadow 0.35s var(--ease), transform 0.35s var(--ease);
+    }
+
+    .landing-nav-dot:hover {
+      background: rgba(255, 255, 255, 0.45);
+    }
+
+    .landing-nav-dot.is-active {
+      background: var(--primary);
+      box-shadow: 0 0 10px rgba(34, 211, 238, 0.45);
+      transform: scale(1.15);
+    }
+
+    .section-slide-inner {
+      width: 100%;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .feat-section .section-slide-inner {
+      padding-top: 0.5rem;
+    }
+
+    .hero.landing-snap-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 2rem 1.5rem 5.5rem;
+    }
+
+    .hero {
+      width: 100%;
+      position: relative;
+      z-index: 2;
+      isolation: isolate;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 50% 50%, rgba(5, 5, 16, 0.85) 0%, rgba(5, 5, 16, 0.5) 35%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .hero > *:not(.landing-scroll-cue) {
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero-kicker {
+      font-size: 13px;
+      font-weight: 400;
+      text-transform: uppercase;
+      letter-spacing: 4px;
+      color: rgba(255, 255, 255, 0.3);
+      margin-bottom: 1rem;
+    }
+
+    .hero-title {
+      font-size: clamp(40px, 7vw, 72px);
+      font-weight: 500;
+      margin: 0 0 1.5rem;
+      line-height: 1.1;
+    }
+    .hero-title .grad {
+      background: linear-gradient(135deg, #22D3EE, #34D399);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      justify-content: center;
+      margin-bottom: 2rem;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--text-secondary);
+    }
+    .pill-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .pill-dot.cyan { background: #22D3EE; }
+    .pill-dot.emerald { background: #34D399; }
+    .pill-dot.coral { background: #fca5a5; }
+
+    .btn-launch {
+      position: relative;
+      overflow: hidden;
+      border: none;
+      padding: 0.9rem 2.25rem;
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 500;
+      color: #ffffff;
+      border-radius: var(--radius-input);
+      cursor: pointer;
+      background: var(--btn-grad);
+      box-shadow: 0 4px 24px rgba(6, 182, 212, 0.25);
+      transition: transform 0.2s var(--ease), box-shadow 0.3s var(--ease);
+    }
+    .btn-launch::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.35) 50%, transparent 60%);
+      transform: translateX(-100%);
+      animation: shimmer 4s var(--ease) infinite;
+    }
+    @keyframes shimmer {
+      0%, 70% { transform: translateX(-100%); }
+      85%, 100% { transform: translateX(100%); }
+    }
+    .btn-launch:hover {
+      box-shadow: 0 0 28px rgba(34, 211, 238, 0.35);
+    }
+    .btn-launch:active { transform: scale(0.98); }
+
+    .section {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 4rem 1.5rem;
+    }
+
+    .landing-hide {
+      opacity: 0;
+      visibility: hidden;
+      height: 0;
+      overflow: hidden;
+      padding-top: 0 !important;
+      padding-bottom: 0 !important;
+      margin: 0 !important;
+      transition: opacity 400ms var(--ease), visibility 0s 400ms;
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .feature-card {
+      position: relative;
+      overflow: hidden;
+      border-radius: var(--radius-card);
+      padding: 1.5rem;
+      background: rgba(10, 10, 30, 0.6);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(34, 211, 238, 0.06);
+      transition: transform 0.35s var(--ease), border-color 0.35s var(--ease), box-shadow 0.35s var(--ease);
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    .feature-card.visible {
+      opacity: 1;
+      transform: translateY(0);
+      transition: opacity 0.6s var(--ease), transform 0.6s var(--ease), border-color 0.35s var(--ease);
+    }
+    .feature-card::before {
+      content: '';
+      position: absolute;
+      left: 0; right: 0; top: -100%;
+      height: 40%;
+      background: linear-gradient(180deg, transparent, rgba(34, 211, 238, 0.08), transparent);
+      opacity: 0;
+      transition: top 0.5s var(--ease), opacity 0.3s;
+    }
+    .feature-card:hover {
+      transform: translateY(-6px);
+      border-color: var(--card-border-hover);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+    }
+    .feature-card:hover::before { top: 100%; opacity: 1; }
+    .feature-card:hover .fc-title {
+      background: linear-gradient(135deg, #22D3EE, #34D399);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .fc-icon {
+      width: 40px; height: 40px;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+    .fc-icon.cyan { background: rgba(34, 211, 238, 0.12); color: #22D3EE; }
+    .fc-icon.emerald { background: rgba(52, 211, 153, 0.12); color: #34D399; }
+    .fc-icon.coral { background: rgba(252, 165, 165, 0.12); color: #fca5a5; }
+    .fc-title { font-size: 17px; font-weight: 500; margin: 0 0 0.5rem; transition: color 0.3s; }
+    .fc-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin: 0; }
+
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 1.5rem;
+      text-align: center;
+      margin-top: 2rem;
+    }
+    .stat-item {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    .stat-item.visible { opacity: 1; transform: translateY(0); transition: opacity 0.6s var(--ease), transform 0.6s var(--ease); }
+    .stat-val {
+      font-size: clamp(28px, 5vw, 40px);
+      font-weight: 500;
+      background: linear-gradient(135deg, #22D3EE, #34D399);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .stat-label { font-size: 12px; color: var(--text-muted); margin-top: 0.35rem; text-transform: uppercase; letter-spacing: 1px; }
+
+    #architecture-section.landing-snap-section {
+      min-height: 100vh;
+      height: 100vh;
+      max-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      padding: 1.25rem 1.25rem 2.5rem;
+      box-sizing: border-box;
+      position: relative;
+    }
+
+    #architecture-scroll {
+      max-height: calc(100vh - 120px);
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      width: 100%;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(34, 211, 238, 0.2) transparent;
+    }
+
+    #architecture-scroll::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    #architecture-scroll::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    #architecture-scroll::-webkit-scrollbar-thumb {
+      background: rgba(34, 211, 238, 0.2);
+      border-radius: 3px;
+    }
+
+    .how-heading {
+      font-size: 18px;
+      font-weight: 500;
+      text-align: center;
+      margin: 0 0 1rem;
+      flex-shrink: 0;
+      color: var(--text);
+    }
+
+    #architecture-scroll .how-section {
+      max-width: 700px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .how-container {
+      position: relative;
+      padding: 0 0 1.5rem;
+    }
+
+    .how-line {
+      position: absolute;
+      left: 50%;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      transform: translateX(-50%);
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .how-line-track {
+      position: absolute;
+      inset: 0;
+      background: rgba(34, 211, 238, 0.15);
+    }
+
+    .how-line-draw {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      width: 100%;
+      height: 0%;
+      background: linear-gradient(180deg, rgba(34, 211, 238, 0.55), rgba(34, 211, 238, 0.12));
+      transition: none;
+    }
+
+    .how-step {
+      position: relative;
+      display: grid;
+      grid-template-columns: 1fr 20px 1fr;
+      gap: 0 0.75rem;
+      align-items: start;
+      padding: 1.75rem 0;
+      min-height: 5rem;
+      z-index: 1;
+      opacity: 0;
+      transition: opacity 0.65s var(--ease), transform 0.65s var(--ease);
+    }
+
+    .how-step.visible {
+      opacity: 1;
+    }
+
+    .how-step--L.visible,
+    .how-step--R.visible {
+      transform: translateX(0) !important;
+    }
+
+    .how-step--C.visible {
+      transform: translateY(0) !important;
+    }
+
+    .how-step--L {
+      transform: translateX(-24px);
+    }
+
+    .how-step--R {
+      transform: translateX(24px);
+    }
+
+    .how-step--L .how-card {
+      grid-column: 1;
+      justify-self: end;
+      text-align: right;
+    }
+
+    .how-step--L .how-dot-wrap {
+      grid-column: 2;
+    }
+
+    .how-step--R .how-dot-wrap {
+      grid-column: 2;
+    }
+
+    .how-step--R .how-card {
+      grid-column: 3;
+      justify-self: start;
+      text-align: left;
+    }
+
+    .how-step--C {
+      grid-template-columns: 1fr 20px 1fr;
+      grid-template-rows: auto auto;
+      align-items: start;
+      transform: translateY(20px);
+    }
+
+    .how-step--C .how-dot-wrap {
+      grid-column: 2;
+      grid-row: 1;
+    }
+
+    .how-step--C .how-card {
+      grid-column: 1 / 4;
+      grid-row: 2;
+      margin-top: 0.65rem;
+      justify-self: center;
+      max-width: 560px;
+      width: 100%;
+    }
+
+    .how-step--C .how-step-title {
+      justify-content: center;
+      text-align: center;
+    }
+
+    .how-dot-wrap {
+      position: relative;
+      display: flex;
+      justify-content: center;
+      padding-top: 0.35rem;
+    }
+
+    .how-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 12px rgba(34, 211, 238, 0.65), 0 0 4px rgba(34, 211, 238, 0.9);
+      flex-shrink: 0;
+    }
+
+    .how-card {
+      position: relative;
+      overflow: hidden;
+      max-width: 280px;
+      border-radius: var(--radius-card);
+      padding: 1.5rem;
+      background: rgba(10, 10, 30, 0.6);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(34, 211, 238, 0.06);
+      transition: transform 0.35s var(--ease), border-color 0.35s var(--ease), box-shadow 0.35s var(--ease);
+    }
+
+    .how-card::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: -100%;
+      height: 40%;
+      background: linear-gradient(180deg, transparent, rgba(34, 211, 238, 0.08), transparent);
+      opacity: 0;
+      transition: top 0.5s var(--ease), opacity 0.3s;
+    }
+
+    .how-card:hover {
+      transform: translateY(-6px);
+      border-color: var(--card-border-hover);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+    }
+
+    .how-card:hover::before {
+      top: 100%;
+      opacity: 1;
+    }
+
+    .how-card > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .how-step-title {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 15px;
+      font-weight: 500;
+      margin: 0 0 0.4rem;
+      color: var(--text);
+    }
+
+    .how-step--R .how-step-title {
+      flex-direction: row-reverse;
+    }
+
+    .how-ico {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      flex-shrink: 0;
+      background: rgba(34, 211, 238, 0.1);
+      border: 1px solid rgba(34, 211, 238, 0.12);
+      color: var(--primary);
+    }
+
+    .how-step-desc {
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.45;
+      margin: 0 0 0.75rem;
+    }
+
+    .how-mock {
+      margin-top: 0.5rem;
+      border-radius: var(--radius-btn-sm);
+      border: 1px solid var(--input-border);
+      background: var(--input-bg);
+      padding: 0.45rem 0.55rem;
+      min-height: 32px;
+    }
+
+    .mock-type-box {
+      font-family: 'Consolas', 'Fira Code', monospace;
+      font-size: 10px;
+      color: var(--text-secondary);
+      text-align: left;
+    }
+
+    .mock-type-chars {
+      display: inline-block;
+      overflow: hidden;
+      white-space: nowrap;
+      vertical-align: bottom;
+      max-width: 0;
+      animation: howTypeLoop 4.5s steps(8, end) infinite;
+    }
+
+    @keyframes howTypeLoop {
+      0% { max-width: 0ch; }
+      35% { max-width: 8ch; }
+      55% { max-width: 8ch; }
+      90% { max-width: 8ch; }
+      100% { max-width: 0ch; }
+    }
+
+    .mock-caret {
+      display: inline-block;
+      width: 1px;
+      height: 11px;
+      margin-left: 1px;
+      background: var(--primary);
+      vertical-align: -1px;
+      animation: howCaret 0.8s step-end infinite;
+    }
+
+    @keyframes howCaret {
+      50% { opacity: 0; }
+    }
+
+    .mock-net {
+      min-height: 44px;
+      padding: 0.35rem 0.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .mock-net-svg {
+      width: 100%;
+      max-width: 200px;
+      height: 40px;
+      overflow: visible;
+    }
+
+    .mock-net-line {
+      stroke: rgba(34, 211, 238, 0.22);
+      stroke-width: 0.5;
+      fill: none;
+    }
+
+    .mock-net-node {
+      fill: rgba(34, 211, 238, 0.35);
+      animation: howNetPulse 2.2s var(--ease) infinite;
+    }
+
+    .mock-net-n1 { animation-delay: 0s; }
+    .mock-net-n2 { animation-delay: 0.2s; }
+    .mock-net-n3 { animation-delay: 0.4s; }
+    .mock-net-n4 { animation-delay: 0.15s; }
+    .mock-net-n5 { animation-delay: 0.35s; }
+    .mock-net-n6 { animation-delay: 0.55s; }
+
+    @keyframes howNetPulse {
+      0%, 100% { fill: rgba(34, 211, 238, 0.25); }
+      50% { fill: rgba(34, 211, 238, 0.85); }
+    }
+
+    .mini-bars {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 6px;
+      height: 36px;
+      padding: 0 0.25rem;
+    }
+
+    .mini-bar {
+      width: 11px;
+      border-radius: 2px;
+      background: var(--primary);
+      transform-origin: bottom;
+      transform: scaleY(0.2);
+      animation: howBarGrow 2.2s var(--ease) infinite;
+    }
+
+    .mini-bar:nth-child(1) { height: 32px; animation-delay: 0s; }
+    .mini-bar:nth-child(2) { height: 22px; animation-delay: 0.15s; }
+    .mini-bar:nth-child(3) { height: 28px; animation-delay: 0.3s; }
+    .mini-bar:nth-child(4) { height: 18px; animation-delay: 0.45s; }
+    .mini-bar:nth-child(5) { height: 26px; animation-delay: 0.6s; }
+    .mini-bar:nth-child(6) { height: 14px; animation-delay: 0.75s; }
+
+    @keyframes howBarGrow {
+      0%, 100% { transform: scaleY(0.15); opacity: 0.7; }
+      50% { transform: scaleY(1); opacity: 1; }
+    }
+
+    .mock-attn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      flex-wrap: wrap;
+      padding: 0.35rem 0.25rem;
+      min-height: 36px;
+    }
+
+    .mock-attn-dot {
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: rgba(34, 211, 238, 0.25);
+      flex-shrink: 0;
+      vertical-align: middle;
+      animation: howAttnPulse 1.8s var(--ease) infinite;
+    }
+
+    .mock-attn-dot:nth-child(1) { animation-delay: 0s; }
+    .mock-attn-dot:nth-child(2) { animation-delay: 0.12s; }
+    .mock-attn-dot:nth-child(3) { animation-delay: 0.24s; }
+    .mock-attn-dot:nth-child(4) { animation-delay: 0.36s; }
+    .mock-attn-dot:nth-child(5) { animation-delay: 0.48s; }
+    .mock-attn-dot:nth-child(6) { animation-delay: 0.6s; }
+    .mock-attn-dot:nth-child(7) { animation-delay: 0.72s; }
+    .mock-attn-dot:nth-child(8) { animation-delay: 0.84s; }
+    .mock-attn-dot:nth-child(9) { animation-delay: 0.96s; }
+    .mock-attn-dot:nth-child(10) { animation-delay: 1.08s; }
+    .mock-attn-dot:nth-child(11) { animation-delay: 1.2s; }
+    .mock-attn-dot:nth-child(12) { animation-delay: 1.32s; }
+
+    @keyframes howAttnPulse {
+      0%, 100% { opacity: 0.35; transform: scale(1); background: rgba(34, 211, 238, 0.25); box-shadow: none; }
+      40% { opacity: 1; transform: scale(1.15); background: rgba(34, 211, 238, 0.95); box-shadow: 0 0 8px rgba(34, 211, 238, 0.5); }
+      60% { opacity: 0.45; transform: scale(1); background: rgba(34, 211, 238, 0.3); box-shadow: none; }
+    }
+
+    .how-outputs-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.65rem;
+      margin-top: 0.35rem;
+    }
+
+    .how-out-mini {
+      flex: 1 1 90px;
+      min-width: 0;
+      font-size: 11px;
+      font-weight: 500;
+      padding: 0.45rem 0.5rem;
+      border-radius: var(--radius-btn-sm);
+      background: rgba(8, 8, 22, 0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+      animation-duration: 2.4s;
+      animation-timing-function: var(--ease);
+      animation-iteration-count: infinite;
+    }
+
+    .how-out-mini--cyan {
+      border: 1px solid rgba(34, 211, 238, 0.2);
+      animation-name: howOutSeqGlowCyan;
+      animation-delay: 0s;
+    }
+
+    .how-out-mini--emerald {
+      border: 1px solid rgba(52, 211, 153, 0.2);
+      animation-name: howOutSeqGlowEmerald;
+      animation-delay: 0.8s;
+    }
+
+    .how-out-mini--coral {
+      border: 1px solid rgba(251, 146, 60, 0.22);
+      animation-name: howOutSeqGlowCoral;
+      animation-delay: 1.6s;
+    }
+
+    .how-out-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .how-out-mini--cyan .how-out-dot { background: #22d3ee; }
+    .how-out-mini--emerald .how-out-dot { background: #34d399; }
+    .how-out-mini--coral .how-out-dot { background: #fb923c; }
+
+    @keyframes howOutSeqGlowCyan {
+      0%, 100% { box-shadow: 0 0 0 0 transparent; border-color: rgba(34, 211, 238, 0.2); }
+      10% { box-shadow: 0 0 16px rgba(34, 211, 238, 0.35); border-color: rgba(34, 211, 238, 0.45); }
+      28% { box-shadow: 0 0 0 0 transparent; border-color: rgba(34, 211, 238, 0.2); }
+    }
+
+    @keyframes howOutSeqGlowEmerald {
+      0%, 100% { box-shadow: 0 0 0 0 transparent; border-color: rgba(52, 211, 153, 0.2); }
+      10% { box-shadow: 0 0 16px rgba(52, 211, 153, 0.35); border-color: rgba(52, 211, 153, 0.45); }
+      28% { box-shadow: 0 0 0 0 transparent; border-color: rgba(52, 211, 153, 0.2); }
+    }
+
+    @keyframes howOutSeqGlowCoral {
+      0%, 100% { box-shadow: 0 0 0 0 transparent; border-color: rgba(251, 146, 60, 0.22); }
+      10% { box-shadow: 0 0 16px rgba(251, 146, 60, 0.35); border-color: rgba(251, 146, 60, 0.45); }
+      28% { box-shadow: 0 0 0 0 transparent; border-color: rgba(251, 146, 60, 0.22); }
+    }
+
+    @media (max-width: 560px) {
+      .how-step {
+        grid-template-columns: 1fr 16px 1fr;
+        gap: 0 0.35rem;
+      }
+      .how-card { max-width: 100%; }
+      .how-step--L .how-card,
+      .how-step--R .how-card {
+        text-align: left;
+        justify-self: stretch;
+      }
+      .how-step--R .how-step-title {
+        flex-direction: row;
+      }
+      .how-outputs-row {
+        flex-direction: column;
+      }
+    }
+
+    /* Below #landing-layer (z-index: 3) when closed so hero/button receive clicks */
+    #app-shell {
+      position: relative;
+      z-index: 2;
+      min-height: 0;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 0.3s var(--ease), visibility 0s 0.5s;
+    }
+    #app-shell.is-open {
+      z-index: 8;
+      min-height: 100vh;
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+      transition: opacity 0.5s var(--ease), visibility 0s 0s;
+    }
+
+    .nav-wrap {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 20;
+      transform: translateY(-100%);
+      transition: transform 400ms var(--ease);
+    }
+    #app-shell.is-open .nav-wrap { transform: translateY(0); }
+
+    .app-nav {
+      height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 1.25rem;
+      background: rgba(5, 5, 16, 0.92);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid transparent;
+      border-image: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.35), transparent) 1;
+    }
+
+    .nav-brand {
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      background: none;
+      border: none;
+      color: var(--text);
+      font-family: inherit;
+      padding: 0;
+    }
+    .nav-brand .grad {
+      background: linear-gradient(135deg, #22D3EE, #34D399);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .nav-tabs { display: flex; gap: 0.25rem; }
+    .nav-tab {
+      padding: 0 0.85rem;
+      height: 50px;
+      display: flex;
+      align-items: center;
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--text-secondary);
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      position: relative;
+      transition: color 0.25s var(--ease);
+    }
+    .nav-tab:hover { color: var(--text); }
+    .nav-tab.active {
+      color: var(--text);
+      font-weight: 500;
+    }
+    .nav-tab.active::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0.5rem; right: 0.5rem;
+      height: 2px;
+      background: linear-gradient(90deg, #22D3EE, #34D399);
+      border-radius: 1px;
+    }
+
+    .content-outer {
+      display: contents;
+    }
+
+    .glass-panel#content-panel {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      max-width: 800px;
+      width: 90%;
+      max-height: calc(100vh - 100px);
+      overflow-y: auto;
+      overflow-x: hidden;
+      margin: 0;
+      z-index: 12;
+      background: var(--panel-bg);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(34, 211, 238, 0.06);
+      border-radius: var(--radius-panel);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+      padding: 2rem;
+      min-height: 200px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 500ms var(--ease);
+    }
+    #app-shell.is-open .glass-panel#content-panel {
+      opacity: 1;
+      pointer-events: auto;
+      transition-delay: 100ms;
+    }
+
+    #app-shell:not(.is-open) #content-panel {
+      display: none;
+    }
+    .corner-accents span {
+      position: absolute;
+      width: 12px; height: 12px;
+      border-color: #22D3EE;
+      border-style: solid;
+      opacity: 0.5;
+      pointer-events: none;
+    }
+    .corner-accents .c1 { top: 10px; left: 10px; border-width: 1px 0 0 1px; }
+    .corner-accents .c2 { top: 10px; right: 10px; border-width: 1px 1px 0 0; }
+    .corner-accents .c3 { bottom: 10px; left: 10px; border-width: 0 0 1px 1px; }
+    .corner-accents .c4 { bottom: 10px; right: 10px; border-width: 0 1px 1px 0; }
+
+    .tab-panes { position: relative; }
+    .tab-pane {
+      position: absolute;
+      left: 0; right: 0; top: 0;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(12px);
+      transition: opacity 300ms var(--ease), transform 300ms var(--ease), visibility 0s 300ms;
+      pointer-events: none;
+    }
+    .tab-pane.active {
+      position: relative;
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+      transition: opacity 300ms var(--ease), transform 300ms var(--ease), visibility 0s 0s;
+      pointer-events: auto;
+      z-index: 1;
+    }
+
+    .tab-title { font-size: 18px; font-weight: 500; margin: 0 0 0.35rem; }
+    .tab-sub { font-size: 12px; color: var(--text-muted); margin: 0 0 1.25rem; }
+
+    .badge-exp {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 500;
+      padding: 0.2rem 0.5rem;
+      border-radius: var(--radius-btn-sm);
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.2);
+      color: #fcd34d;
+      margin-left: 0.5rem;
+      vertical-align: middle;
+    }
+
+    .design-dev-banner {
+      background: rgba(245, 158, 11, 0.05);
+      border: 1px solid rgba(245, 158, 11, 0.1);
+      border-radius: 8px;
+      padding: 10px 16px;
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .design-dev-banner-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #f59e0b;
+      flex-shrink: 0;
+      animation: designDevDotPulse 2.8s ease-in-out infinite;
+    }
+
+    @keyframes designDevDotPulse {
+      0%,
+      100% {
+        opacity: 1;
+        box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.45);
+      }
+      50% {
+        opacity: 0.65;
+        box-shadow: 0 0 0 8px rgba(245, 158, 11, 0);
+      }
+    }
+
+    .design-dev-banner-text {
+      font-size: 12px;
+      font-weight: 400;
+      line-height: 1.45;
+      color: rgba(245, 158, 11, 0.5);
+    }
+
+    textarea.seq-input, input.text-input, select.select-input {
+      width: 100%;
+      font-family: 'Consolas', 'Fira Code', monospace;
+      font-size: 12px;
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      border-radius: var(--radius-input);
+      color: var(--text);
+      padding: 0.75rem 1rem;
+      resize: vertical;
+      min-height: 120px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    textarea.seq-input:focus, input.text-input:focus, select.select-input:focus {
+      outline: none;
+      border-color: var(--input-focus-border);
+      box-shadow: var(--input-focus-glow);
+    }
+
+    select.select-input {
+      min-height: auto;
+      cursor: pointer;
+      margin-bottom: 0.75rem;
+    }
+
+    .row-tools {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin: 0.75rem 0 1rem;
+    }
+    .btn-outline {
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 400;
+      padding: 0.45rem 0.9rem;
+      border-radius: var(--radius-btn-sm);
+      border: 1px solid var(--input-border);
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .btn-outline:hover { border-color: rgba(34, 211, 238, 0.35); color: var(--text); }
+    .len-text { font-size: 12px; color: var(--text-muted); }
+
+    .btn-primary {
+      position: relative;
+      overflow: hidden;
+      width: 100%;
+      margin-top: 0.5rem;
+      padding: 0.85rem 1rem;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      color: #ffffff;
+      border: none;
+      border-radius: var(--radius-input);
+      cursor: pointer;
+      background: var(--btn-grad);
+      transition: transform 0.2s var(--ease), box-shadow 0.3s;
+    }
+    .btn-primary::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.25) 50%, transparent 60%);
+      transform: translateX(-100%);
+      animation: shimmer 4s var(--ease) infinite;
+    }
+    .btn-primary:hover { box-shadow: 0 0 24px rgba(34, 211, 238, 0.25); }
+    .btn-primary:active { transform: scale(0.98); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    .helper { font-size: 11px; color: var(--text-muted); margin: 0.35rem 0 0.75rem; }
+
+    .loading-wrap {
+      display: none;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 1rem 0;
+      justify-content: center;
+    }
+    .loading-wrap.show { display: flex; }
+    .ld {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #22D3EE;
+      animation: wave 0.9s ease-in-out infinite;
+    }
+    .ld:nth-child(2) { background: #34D399; animation-delay: 0.1s; }
+    .ld:nth-child(3) { animation-delay: 0.2s; }
+    .ld:nth-child(4) { animation-delay: 0.3s; }
+    .ld:nth-child(5) { animation-delay: 0.4s; }
+    @keyframes wave {
+      0%, 100% { transform: translateY(0); opacity: 0.4; }
+      50% { transform: translateY(-8px); opacity: 1; }
+    }
+
+    .results-block {
+      margin-top: 1.5rem;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.5s var(--ease), transform 0.5s var(--ease);
+    }
+    .results-block.show { opacity: 1; transform: translateY(0); }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    .metric-card {
+      background: rgba(10, 10, 30, 0.5);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-input);
+      padding: 1rem;
+      border-top: 2px solid transparent;
+      border-image: linear-gradient(90deg, #22D3EE, #34D399) 1;
+      opacity: 0;
+      transform: translateY(16px);
+      transition: opacity 0.45s var(--ease), transform 0.45s var(--ease);
+    }
+    .metric-card.in { opacity: 1; transform: translateY(0); }
+    .metric-card .mk { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .metric-card .mv { font-size: 18px; font-weight: 500; margin-top: 0.35rem; }
+
+    .plot-box { width: 100%; min-height: 320px; margin: 1rem 0; }
+
+    .collapsible {
+      margin-top: 1rem;
+      border-left: 2px solid transparent;
+      border-radius: 0 var(--radius-input) var(--radius-input) 0;
+      overflow: hidden;
+      transition: border-color 0.3s var(--ease);
+    }
+    .collapsible.open { border-left-color: #22D3EE; }
+    .collapsible-hd {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 1rem;
+      background: rgba(10, 10, 30, 0.4);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      user-select: none;
+    }
+    .collapsible-bd {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.45s var(--ease);
+    }
+    .collapsible.open .collapsible-bd { max-height: 2000px; }
+
+    .risk-banner {
+      padding: 1rem 1.25rem;
+      border-radius: var(--radius-input);
+      margin-bottom: 1rem;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .risk-banner.high {
+      background: var(--risk-high-bg);
+      border: 1px solid var(--risk-high-border);
+      color: var(--risk-high-text);
+      animation: pulseRisk 2s ease-in-out infinite;
+    }
+    .risk-banner.medium {
+      background: var(--risk-med-bg);
+      border: 1px solid var(--risk-med-border);
+      color: var(--risk-med-text);
+    }
+    .risk-banner.low {
+      background: var(--risk-low-bg);
+      border: 1px solid var(--risk-low-border);
+      color: var(--risk-low-text);
+    }
+    .risk-banner.none {
+      background: var(--risk-none-bg);
+      border: 1px solid var(--risk-none-border);
+      color: var(--text-secondary);
+    }
+    @keyframes pulseRisk {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.25); }
+      50% { box-shadow: 0 0 16px 2px rgba(220, 38, 38, 0.2); }
+    }
+
+    .risk-banner .llm-interpret-label {
+      margin-bottom: 0.4rem;
+    }
+
+    .predict-llm-block {
+      background: rgba(34, 211, 238, 0.04);
+      border: 1px solid rgba(34, 211, 238, 0.08);
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin-top: 1rem;
+    }
+
+    .llm-interpret-label {
+      font-size: 11px;
+      color: rgba(34, 211, 238, 0.5);
+      margin-bottom: 0.5rem;
+    }
+
+    .llm-interpret-text {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.6);
+      line-height: 1.8;
+    }
+
+    .gain { color: #34D399; }
+    .loss { color: #fca5a5; }
+
+    .slider-row { margin: 0.75rem 0; }
+    .slider-row label { display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 0.35rem; }
+    input[type="range"] { width: 100%; accent-color: #22D3EE; }
+
+    .placeholder-msg {
+      padding: 1.25rem;
+      border: 1px dashed rgba(34, 211, 238, 0.2);
+      border-radius: var(--radius-input);
+      color: var(--text-secondary);
+      font-size: 13px;
+      text-align: center;
+    }
+
+    .signal-block { font-size: 12px; color: var(--text-secondary); margin-top: 0.75rem; }
+    .signal-block pre {
+      font-family: 'Consolas', 'Fira Code', monospace;
+      font-size: 11px;
+      background: var(--input-bg);
+      padding: 0.75rem;
+      border-radius: var(--radius-btn-sm);
+      overflow: auto;
+      border: 1px solid var(--input-border);
+    }
+
+    .variant-pos-lookup {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.5rem 1rem;
+      margin: 0 0 0.75rem;
+      font-size: 12px;
+    }
+    .variant-pos-lookup[hidden] { display: none !important; }
+    .lookup-label { color: var(--text-secondary); font-weight: 400; }
+    .lookup-pos-input {
+      max-width: 100px;
+      min-height: auto;
+      padding: 0.45rem 0.65rem;
+      margin: 0;
+    }
+    .lookup-result {
+      font-family: 'Consolas', 'Fira Code', monospace;
+      color: var(--text);
+    }
+    .lookup-result.lookup-err { color: var(--risk-high-text); }
+
+    .mut-live { font-size: 12px; margin: 0.35rem 0 0.5rem; line-height: 1.55; }
+    .mut-live-line { margin: 0.2rem 0; }
+    .mut-live-line.ok { color: var(--secondary); }
+    .mut-live-line.bad { color: var(--risk-high-text); }
+    .mut-live-line.muted { color: var(--text-muted); }
+  </style>
+</head>
+<body>
+  <div id="canvas-bg" aria-hidden="true"></div>
+  <div id="vignette" aria-hidden="true"></div>
+
+  <div id="landing-layer">
+    <section class="hero landing-snap-section" id="hero-section">
+      <p class="hero-kicker">Protein intelligence</p>
+      <h1 class="hero-title">Prot<span class="grad">Loc</span>-AI</h1>
+      <div class="pills">
+        <span class="pill"><span class="pill-dot cyan"></span>Prediction</span>
+        <span class="pill"><span class="pill-dot emerald"></span>Mutation analysis</span>
+        <span class="pill"><span class="pill-dot coral"></span>Explainability</span>
+      </div>
+      <button type="button" class="btn-launch" id="btn-launch">Launch app</button>
+      <div class="landing-scroll-cue" id="hero-scroll-cue" aria-hidden="true">
+        <div class="landing-scroll-cue-bob">
+          <div class="landing-scroll-cue-chevron" aria-hidden="true"></div>
+          <span class="landing-scroll-cue-label">Scroll</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="feat-section section landing-snap-section" id="features-section">
+      <div class="section-slide-inner">
+        <div class="feature-grid">
+          <article class="feature-card" data-feature-card>
+            <div class="fc-icon cyan">◎</div>
+            <h3 class="fc-title">Localization prediction</h3>
+            <p class="fc-desc">Residue-level localization across 11 compartments with ESM-2 embeddings.</p>
+          </article>
+          <article class="feature-card" data-feature-card>
+            <div class="fc-icon emerald">◇</div>
+            <h3 class="fc-title">Variant effect analysis</h3>
+            <p class="fc-desc">Quantify how mutations shift predicted localization and clinical risk.</p>
+          </article>
+          <article class="feature-card" data-feature-card>
+            <div class="fc-icon coral">◆</div>
+            <h3 class="fc-title">Residue interpretability</h3>
+            <p class="fc-desc">Attention maps and signal motifs for transparent model behavior.</p>
+          </article>
+        </div>
+      </div>
+      <div class="landing-scroll-cue" id="features-scroll-cue" aria-hidden="true">
+        <div class="landing-scroll-cue-bob">
+          <div class="landing-scroll-cue-chevron" aria-hidden="true"></div>
+          <span class="landing-scroll-cue-label">Scroll</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section-slide-inner landing-snap-section" id="architecture-section" aria-labelledby="arch-heading">
+      <h2 class="how-heading" id="arch-heading">Architecture</h2>
+      <div class="how-scroll" id="architecture-scroll">
+        <div class="how-section">
+          <div class="how-container">
+            <div class="how-line" aria-hidden="true">
+              <div class="how-line-track"></div>
+              <div class="how-line-draw" id="how-line-draw"></div>
+            </div>
+            <div class="how-step how-step--L" data-how-step>
+              <div class="how-card">
+                <div class="how-step-title"><span class="how-ico">⌁</span>Protein sequence</div>
+                <p class="how-step-desc">Raw amino acids as input</p>
+                <div class="how-mock mock-type-box" aria-hidden="true">
+                  <span class="mock-type-chars">MKFLKFSL</span><span class="mock-caret"></span>
+                </div>
+              </div>
+              <div class="how-dot-wrap"><span class="how-dot"></span></div>
+            </div>
+            <div class="how-step how-step--R" data-how-step>
+              <div class="how-dot-wrap"><span class="how-dot"></span></div>
+              <div class="how-card">
+                <div class="how-step-title"><span class="how-ico">◎</span>ESM-2 language model</div>
+                <p class="how-step-desc">650M parameters · 250M sequences</p>
+                <div class="how-mock mock-net" aria-hidden="true">
+                  <svg class="mock-net-svg" viewBox="0 0 120 36" xmlns="http://www.w3.org/2000/svg">
+                    <line class="mock-net-line" x1="0" y1="18" x2="120" y2="18" />
+                    <line class="mock-net-line" x1="20" y1="18" x2="40" y2="8" />
+                    <line class="mock-net-line" x1="40" y1="8" x2="60" y2="18" />
+                    <line class="mock-net-line" x1="60" y1="18" x2="80" y2="28" />
+                    <line class="mock-net-line" x1="80" y1="28" x2="100" y2="18" />
+                    <line class="mock-net-line" x1="20" y1="18" x2="40" y2="28" />
+                    <line class="mock-net-line" x1="40" y1="28" x2="60" y2="18" />
+                    <circle class="mock-net-node mock-net-n1" cx="20" cy="18" r="3" />
+                    <circle class="mock-net-node mock-net-n2" cx="40" cy="8" r="3" />
+                    <circle class="mock-net-node mock-net-n3" cx="60" cy="18" r="3" />
+                    <circle class="mock-net-node mock-net-n4" cx="80" cy="28" r="3" />
+                    <circle class="mock-net-node mock-net-n5" cx="100" cy="18" r="3" />
+                    <circle class="mock-net-node mock-net-n6" cx="40" cy="28" r="3" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+            <div class="how-step how-step--L" data-how-step>
+              <div class="how-card">
+                <div class="how-step-title"><span class="how-ico">◇</span>Residue embeddings</div>
+                <p class="how-step-desc">1280 dimensions per position</p>
+                <div class="how-mock" aria-hidden="true">
+                  <div class="mini-bars">
+                    <span class="mini-bar"></span><span class="mini-bar"></span><span class="mini-bar"></span>
+                    <span class="mini-bar"></span><span class="mini-bar"></span><span class="mini-bar"></span>
+                  </div>
+                </div>
+              </div>
+              <div class="how-dot-wrap"><span class="how-dot"></span></div>
+            </div>
+            <div class="how-step how-step--R" data-how-step>
+              <div class="how-dot-wrap"><span class="how-dot"></span></div>
+              <div class="how-card">
+                <div class="how-step-title"><span class="how-ico">◆</span>Attention classifier</div>
+                <p class="how-step-desc">Learned pooling over residues</p>
+                <div class="how-mock mock-attn" aria-hidden="true">
+                  <span class="mock-attn-dot"></span><span class="mock-attn-dot"></span><span class="mock-attn-dot"></span><span class="mock-attn-dot"></span>
+                  <span class="mock-attn-dot"></span><span class="mock-attn-dot"></span><span class="mock-attn-dot"></span><span class="mock-attn-dot"></span>
+                  <span class="mock-attn-dot"></span><span class="mock-attn-dot"></span><span class="mock-attn-dot"></span><span class="mock-attn-dot"></span>
+                </div>
+              </div>
+            </div>
+            <div class="how-step how-step--C" data-how-step>
+              <div class="how-dot-wrap"><span class="how-dot"></span></div>
+              <div class="how-card">
+                <div class="how-step-title"><span class="how-ico">◎</span>Three outputs</div>
+                <div class="how-outputs-row">
+                  <div class="how-out-mini how-out-mini--cyan"><span class="how-out-dot"></span>Prediction</div>
+                  <div class="how-out-mini how-out-mini--emerald"><span class="how-out-dot"></span>Variant analysis</div>
+                  <div class="how-out-mini how-out-mini--coral"><span class="how-out-dot"></span>Interpretability</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="landing-scroll-cue" id="architecture-scroll-cue" aria-hidden="true">
+        <div class="landing-scroll-cue-bob">
+          <div class="landing-scroll-cue-chevron" aria-hidden="true"></div>
+          <span class="landing-scroll-cue-label">Scroll</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="section stats-section section-slide-inner landing-snap-section" id="stats-section">
+      <div class="stats-row" id="stats-row">
+        <div class="stat-item" data-stat-item data-target="28303" data-suffix="" data-decimals="0"><div class="stat-val" data-val>0</div><div class="stat-label">Proteins</div></div>
+        <div class="stat-item" data-stat-item data-target="11" data-suffix="" data-decimals="0"><div class="stat-val" data-val>0</div><div class="stat-label">Compartments</div></div>
+        <div class="stat-item" data-stat-item data-target="0.93" data-suffix="" data-decimals="2"><div class="stat-val" data-val>0</div><div class="stat-label">AUROC</div></div>
+        <div class="stat-item" data-stat-item data-target="650" data-suffix="M" data-decimals="0"><div class="stat-val" data-val>0</div><div class="stat-label">Parameters</div></div>
+      </div>
+      <div class="stats-section-footer">
+        <p class="stats-built-with">Built with ESM-2 · PyTorch · FastAPI</p>
+        <button type="button" class="btn-back-top" id="btn-back-top">Back to top</button>
+      </div>
+    </section>
+
+    <nav class="landing-nav-dots" id="landing-nav-dots" aria-label="Landing page sections">
+      <button type="button" class="landing-nav-dot is-active" data-landing-target="hero-section" aria-label="Intro" aria-current="true"></button>
+      <button type="button" class="landing-nav-dot" data-landing-target="features-section" aria-label="Features"></button>
+      <button type="button" class="landing-nav-dot" data-landing-target="architecture-section" aria-label="Architecture"></button>
+      <button type="button" class="landing-nav-dot" data-landing-target="stats-section" aria-label="Stats"></button>
+    </nav>
+  </div>
+
+  <div id="app-shell">
+    <div class="nav-wrap">
+      <nav class="app-nav">
+        <button type="button" class="nav-brand" id="nav-home" aria-label="Back to landing">
+          Prot<span class="grad">Loc</span>-AI
+        </button>
+        <div class="nav-tabs">
+          <button type="button" class="nav-tab active" data-tab="predict">Predict</button>
+          <button type="button" class="nav-tab" data-tab="variant">Variant Effect</button>
+          <button type="button" class="nav-tab" data-tab="design">Design</button>
+        </div>
+      </nav>
+    </div>
+
+    <div class="content-outer">
+      <main class="glass-panel" id="content-panel">
+        <div class="corner-accents" aria-hidden="true">
+          <span class="c1"></span><span class="c2"></span><span class="c3"></span><span class="c4"></span>
+        </div>
+
+        <div class="tab-panes">
+          <div class="tab-pane active" id="pane-predict" role="tabpanel">
+            <h2 class="tab-title">Predict localization</h2>
+            <p class="tab-sub">11 compartments · residue attention · ESM-2 650M</p>
+            <textarea class="seq-input" id="predict-seq" placeholder="Paste amino acid sequence (A–Y)…"></textarea>
+            <div class="row-tools">
+              <button type="button" class="btn-outline" id="predict-example">Load example</button>
+              <span class="len-text">Length: <span id="predict-len">0</span></span>
+            </div>
+            <button type="button" class="btn-primary" id="predict-run">Predict</button>
+            <div class="loading-wrap" id="predict-loading"><span class="ld"></span><span class="ld"></span><span class="ld"></span><span class="ld"></span><span class="ld"></span></div>
+            <div class="results-block" id="predict-results">
+              <div class="metric-grid" id="predict-metrics"></div>
+              <div class="plot-box" id="plot-locations"></div>
+              <div id="predict-interpretation" class="predict-llm-block" hidden></div>
+              <div class="collapsible" id="coll-attn">
+                <div class="collapsible-hd"><span>Attention analysis</span><span class="chev">▼</span></div>
+                <div class="collapsible-bd"><div class="plot-box" id="plot-attention"></div></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-pane" id="pane-variant" role="tabpanel">
+            <h2 class="tab-title">Variant effect analysis</h2>
+            <p class="tab-sub">Predict how mutations alter protein localization</p>
+            <textarea class="seq-input" id="variant-seq" placeholder="Wild-type sequence…"></textarea>
+            <div class="row-tools">
+              <button type="button" class="btn-outline" id="variant-example">Load example</button>
+              <span class="len-text">Length: <span id="variant-len">0</span></span>
+            </div>
+            <div class="variant-pos-lookup" id="variant-pos-lookup-wrap" hidden>
+              <label class="lookup-label" for="variant-lookup-pos">Look up position:</label>
+              <input type="text" class="text-input lookup-pos-input" id="variant-lookup-pos" inputmode="numeric" autocomplete="off" placeholder="e.g. 45" />
+              <span class="lookup-result" id="variant-lookup-out" aria-live="polite"></span>
+            </div>
+            <input type="text" class="text-input" id="variant-muts" placeholder="e.g. R78W, K231A, F45D" autocomplete="off" />
+            <div id="variant-muts-live" class="mut-live" aria-live="polite"></div>
+            <p class="helper">Format: [original][position][mutant], comma separated</p>
+            <button type="button" class="btn-primary" id="variant-run">Analyze variant</button>
+            <div class="loading-wrap" id="variant-loading"><span class="ld"></span><span class="ld"></span><span class="ld"></span><span class="ld"></span><span class="ld"></span></div>
+            <div class="results-block" id="variant-results">
+              <div id="variant-risk"></div>
+              <div class="metric-grid" id="variant-metrics"></div>
+              <div class="plot-box" id="plot-variant-bars"></div>
+              <div class="collapsible" id="coll-signal">
+                <div class="collapsible-hd"><span>Signal analysis</span><span class="chev">▼</span></div>
+                <div class="collapsible-bd"><div class="signal-block" id="variant-signal"></div></div>
+              </div>
+              <div class="collapsible" id="coll-attn-comp">
+                <div class="collapsible-hd"><span>Attention comparison</span><span class="chev">▼</span></div>
+                <div class="collapsible-bd">
+                  <div class="plot-box" id="plot-attn-orig" style="min-height:200px"></div>
+                  <div class="plot-box" id="plot-attn-mut" style="min-height:200px"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-pane" id="pane-design" role="tabpanel">
+            <h2 class="tab-title">Protein relocalization<span class="badge-exp">Experimental</span></h2>
+            <p class="tab-sub">AI-guided sequence design</p>
+            <div class="design-dev-banner" role="status">
+              <span class="design-dev-banner-dot" aria-hidden="true"></span>
+              <span class="design-dev-banner-text">This feature is in active development. Results are experimental and may vary.</span>
+            </div>
+            <textarea class="seq-input" id="design-seq" placeholder="Starting sequence…"></textarea>
+            <div class="row-tools">
+              <button type="button" class="btn-outline" id="design-example">Load example</button>
+              <span class="len-text">Length: <span id="design-len">0</span></span>
+            </div>
+            <label class="helper" for="design-src">Source location</label>
+            <select class="select-input" id="design-src"></select>
+            <label class="helper" for="design-tgt">Target location</label>
+            <select class="select-input" id="design-tgt"></select>
+            <div class="slider-row">
+              <label>Max mutations: <span id="design-maxm-val">25</span></label>
+              <input type="range" id="design-maxm" min="1" max="50" value="25" />
+            </div>
+            <div class="slider-row">
+              <label>Iterations: <span id="design-iter-val">10</span></label>
+              <input type="range" id="design-iter" min="1" max="20" value="10" />
+            </div>
+            <button type="button" class="btn-primary" id="design-run">Start design</button>
+            <div class="placeholder-msg" id="design-msg" style="display:none;margin-top:1rem;"></div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+(function() {
+  const EXAMPLE = 'MKFLKFSLALTLLSGLIAAAFAQDLPGNDNSTATLCLGHHAVPNGTLVKTITDDQIEVTNATELVQSSSTGKICNNPHRILDGIDCTLIDALLGDPHCDVFQNETWDLFVERSKAFSNCYPYDVPDYASLRSLVASSGTLEFITEGFTWTGVTQNGGSNACKRGPGSGFFSRLNWLTKSGSTYPVLNVTMPNNDNFDKLYIWGVHHPSTNQEQTSLYVQASGRVTV';
+  const API = '';
+
+  const landingLayer = document.getElementById('landing-layer');
+  const btnBackTop = document.getElementById('btn-back-top');
+  const appShell = document.getElementById('app-shell');
+  const btnLaunch = document.getElementById('btn-launch');
+  const navHome = document.getElementById('nav-home');
+
+  let featureRevealDone = false;
+  let archScrollBound = false;
+  let statsRevealDone = false;
+
+  function setActiveLandingDot(idx) {
+    document.querySelectorAll('#landing-nav-dots .landing-nav-dot').forEach((d, i) => {
+      d.classList.toggle('is-active', i === idx);
+      d.setAttribute('aria-current', i === idx ? 'true' : 'false');
+    });
+  }
+
+  function initLandingScrollUI() {
+    if (!landingLayer) return;
+    const sections = Array.from(document.querySelectorAll('#landing-layer .landing-snap-section'));
+    if (!sections.length) return;
+    const dotBtns = document.querySelectorAll('#landing-nav-dots .landing-nav-dot');
+
+    const revealIo = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          const el = entry.target;
+          if (el.id === 'hero-section') return;
+          el.classList.add('is-visible');
+          if (el.id === 'features-section') revealFeatureCards();
+          if (el.id === 'architecture-section') revealHowSlide();
+          if (el.id === 'stats-section') revealStatsSlide();
+        });
+      },
+      { root: landingLayer, threshold: 0.18, rootMargin: '0px 0px -8% 0px' }
+    );
+
+    sections.forEach((sec) => {
+      if (sec.id !== 'hero-section') revealIo.observe(sec);
+    });
+
+    const activeIo = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          const idx = sections.indexOf(entry.target);
+          if (idx >= 0) setActiveLandingDot(idx);
+        });
+      },
+      { root: landingLayer, rootMargin: '-44% 0px -44% 0px', threshold: 0 }
+    );
+    sections.forEach((s) => activeIo.observe(s));
+
+    const scrollCuePairs = [
+      ['hero-section', 'hero-scroll-cue'],
+      ['features-section', 'features-scroll-cue'],
+      ['architecture-section', 'architecture-scroll-cue'],
+    ];
+    scrollCuePairs.forEach(([sectionId, cueId]) => {
+      const sec = document.getElementById(sectionId);
+      const cue = document.getElementById(cueId);
+      if (!sec || !cue) return;
+      const io = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            cue.classList.toggle('is-hidden', !entry.isIntersecting);
+          });
+        },
+        { root: landingLayer, threshold: 0 }
+      );
+      io.observe(sec);
+    });
+
+    dotBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-landing-target');
+        const target = id && document.getElementById(id);
+        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    });
+
+    if (btnBackTop) {
+      btnBackTop.addEventListener('click', () => {
+        const hero = document.getElementById('hero-section');
+        if (hero) hero.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    }
+  }
+
+  initLandingScrollUI();
+
+  function revealFeatureCards() {
+    if (featureRevealDone) return;
+    featureRevealDone = true;
+    const cards = document.querySelectorAll('[data-feature-card]');
+    cards.forEach((card, i) => {
+      setTimeout(() => card.classList.add('visible'), i * 150);
+    });
+  }
+
+  function revealHowSlide() {
+    const section = document.getElementById('architecture-section');
+    const scrollEl = document.getElementById('architecture-scroll');
+    const howLineDraw = document.getElementById('how-line-draw');
+    if (!section || !scrollEl || !howLineDraw) return;
+
+    function updateLineFromScroll() {
+      const max = scrollEl.scrollHeight - scrollEl.clientHeight;
+      const p = max <= 0 ? 1 : Math.min(1, Math.max(0, scrollEl.scrollTop / max));
+      howLineDraw.style.height = (p * 100) + '%';
+    }
+
+    if (!archScrollBound) {
+      archScrollBound = true;
+      scrollEl.addEventListener(
+        'scroll',
+        () => {
+          requestAnimationFrame(updateLineFromScroll);
+        },
+        { passive: true }
+      );
+      window.addEventListener('resize', () => requestAnimationFrame(updateLineFromScroll));
+      if (typeof ResizeObserver !== 'undefined') {
+        const ro = new ResizeObserver(() => requestAnimationFrame(updateLineFromScroll));
+        ro.observe(scrollEl);
+      }
+      const steps = section.querySelectorAll('[data-how-step]');
+      const stepIo = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) entry.target.classList.add('visible');
+          });
+        },
+        { root: scrollEl, threshold: 0.1, rootMargin: '0px 0px -8% 0px' }
+      );
+      steps.forEach((el) => stepIo.observe(el));
+    }
+    requestAnimationFrame(updateLineFromScroll);
+  }
+
+  function revealStatsSlide() {
+    if (statsRevealDone) return;
+    statsRevealDone = true;
+    document.querySelectorAll('[data-stat-item]').forEach((el) => {
+      el.classList.add('visible');
+      if (el.dataset.target !== undefined) runCounter(el);
+    });
+  }
+
+  function openApp() {
+    if (landingLayer) landingLayer.scrollTop = 0;
+    document.body.style.overflow = 'hidden';
+    if (landingLayer) landingLayer.classList.add('landing-exit');
+    if (appShell) appShell.classList.add('is-open');
+    window.cameraTargetZ = 26;
+  }
+
+  function closeApp() {
+    if (landingLayer) landingLayer.classList.remove('landing-exit');
+    if (appShell) appShell.classList.remove('is-open');
+    document.body.style.overflow = 'hidden';
+    window.cameraTargetZ = 30;
+    if (landingLayer) landingLayer.scrollTop = 0;
+  }
+
+  btnLaunch.addEventListener('click', openApp);
+  navHome.addEventListener('click', () => {
+    closeApp();
+    if (landingLayer) landingLayer.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  function runCounter(wrap) {
+    const target = parseFloat(wrap.dataset.target);
+    const suffix = wrap.dataset.suffix || '';
+    const decimals = parseInt(wrap.dataset.decimals || '0', 10);
+    const out = wrap.querySelector('[data-val]');
+    const dur = 800;
+    const t0 = performance.now();
+    function frame(t) {
+      const p = Math.min(1, (t - t0) / dur);
+      const eased = 1 - Math.pow(1 - p, 3);
+      const v = target * eased;
+      if (decimals) {
+        out.textContent = v.toFixed(decimals) + suffix;
+      } else {
+        out.textContent = Math.round(v).toLocaleString() + suffix;
+      }
+      if (p < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  /* Tabs */
+  const navTabs = document.querySelectorAll('.nav-tab');
+  const panes = {
+    predict: document.getElementById('pane-predict'),
+    variant: document.getElementById('pane-variant'),
+    design: document.getElementById('pane-design'),
+  };
+
+  function setTab(id) {
+    navTabs.forEach((b) => b.classList.toggle('active', b.dataset.tab === id));
+    Object.keys(panes).forEach((k) => {
+      panes[k].classList.toggle('active', k === id);
+    });
+    if (id === 'variant' && typeof onVariantSeqInput === 'function') {
+      onVariantSeqInput();
+    }
+  }
+
+  navTabs.forEach((b) => b.addEventListener('click', () => setTab(b.dataset.tab)));
+
+  /* Seq length bindings */
+  function bindLen(ta, el) {
+    function upd() { el.textContent = String((ta.value || '').replace(/\s/g, '').length); }
+    ta.addEventListener('input', upd);
+    upd();
+  }
+  bindLen(document.getElementById('predict-seq'), document.getElementById('predict-len'));
+  bindLen(document.getElementById('variant-seq'), document.getElementById('variant-len'));
+  bindLen(document.getElementById('design-seq'), document.getElementById('design-len'));
+
+  const variantSeqEl = document.getElementById('variant-seq');
+  const variantLookupWrap = document.getElementById('variant-pos-lookup-wrap');
+  const variantLookupPos = document.getElementById('variant-lookup-pos');
+  const variantLookupOut = document.getElementById('variant-lookup-out');
+  const variantMutsEl = document.getElementById('variant-muts');
+
+  function normVariantSeq() {
+    return (variantSeqEl.value || '').trim().replace(/\s/g, '');
+  }
+
+  function updateVariantLookup() {
+    const seq = normVariantSeq();
+    if (variantLookupWrap) variantLookupWrap.hidden = seq.length === 0;
+    if (seq.length === 0) {
+      if (variantLookupPos) variantLookupPos.value = '';
+      if (variantLookupOut) {
+        variantLookupOut.textContent = '';
+        variantLookupOut.classList.remove('lookup-err');
+      }
+      return;
+    }
+    const v = variantLookupPos ? variantLookupPos.value.trim() : '';
+    if (!variantLookupOut) return;
+    variantLookupOut.classList.remove('lookup-err');
+    if (!v) {
+      variantLookupOut.textContent = '';
+      return;
+    }
+    if (!/^\d+$/.test(v)) {
+      variantLookupOut.textContent = 'Enter a positive integer';
+      variantLookupOut.classList.add('lookup-err');
+      return;
+    }
+    const n = parseInt(v, 10);
+    if (n < 1 || n > seq.length) {
+      variantLookupOut.textContent = 'Out of range (1–' + seq.length + ')';
+      variantLookupOut.classList.add('lookup-err');
+      return;
+    }
+    variantLookupOut.textContent = 'Position ' + n + ': ' + seq[n - 1];
+  }
+
+  function validateVariantMutsLive() {
+    const container = document.getElementById('variant-muts-live');
+    if (!container || !variantMutsEl) return;
+    const seq = normVariantSeq();
+    const raw = variantMutsEl.value;
+    container.innerHTML = '';
+    if (!raw.trim()) return;
+    const parts = raw.split(',');
+    const reFull = /^([A-Z])(\d+)([A-Z])$/i;
+    const rePartial = /^([A-Z])(\d+)$/i;
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i].trim();
+      if (!part) continue;
+      const line = document.createElement('div');
+      line.className = 'mut-live-line';
+      const m = part.match(reFull);
+      if (m) {
+        const orig = m[1].toUpperCase();
+        const pos = parseInt(m[2], 10);
+        if (!seq.length) {
+          line.className += ' bad';
+          line.textContent = part + ' — Paste a sequence first.';
+          container.appendChild(line);
+          continue;
+        }
+        if (pos < 1 || pos > seq.length) {
+          line.className += ' bad';
+          line.textContent = 'Position ' + pos + ' is out of range (1–' + seq.length + ').';
+          container.appendChild(line);
+          continue;
+        }
+        const atPos = seq[pos - 1];
+        if (atPos !== orig) {
+          line.className += ' bad';
+          line.textContent = 'Position ' + pos + ' is ' + atPos + ', not ' + orig;
+          container.appendChild(line);
+          continue;
+        }
+        line.className += ' ok';
+        line.textContent = part + ' — valid';
+        container.appendChild(line);
+        continue;
+      }
+      if (rePartial.test(part) || /^[A-Z]$/i.test(part)) {
+        line.className += ' muted';
+        line.textContent = part + ' — incomplete';
+        container.appendChild(line);
+        continue;
+      }
+      line.className += ' bad';
+      line.textContent = part + ' — invalid format (e.g. R78W)';
+      container.appendChild(line);
+    }
+  }
+
+  function onVariantSeqInput() {
+    updateVariantLookup();
+    validateVariantMutsLive();
+  }
+  variantSeqEl.addEventListener('input', onVariantSeqInput);
+  if (variantLookupPos) variantLookupPos.addEventListener('input', updateVariantLookup);
+  if (variantMutsEl) variantMutsEl.addEventListener('input', validateVariantMutsLive);
+
+  document.getElementById('predict-example').onclick = () => { document.getElementById('predict-seq').value = EXAMPLE; document.getElementById('predict-seq').dispatchEvent(new Event('input')); };
+  document.getElementById('variant-example').onclick = () => { document.getElementById('variant-seq').value = EXAMPLE; document.getElementById('variant-seq').dispatchEvent(new Event('input')); };
+  document.getElementById('design-example').onclick = () => { document.getElementById('design-seq').value = EXAMPLE; document.getElementById('design-seq').dispatchEvent(new Event('input')); };
+
+  /* Collapsibles */
+  document.querySelectorAll('.collapsible').forEach((col) => {
+    col.querySelector('.collapsible-hd').addEventListener('click', () => {
+      col.classList.toggle('open');
+      const ch = col.querySelector('.chev');
+      if (ch) ch.textContent = col.classList.contains('open') ? '▲' : '▼';
+    });
+  });
+
+  /* Locations for design dropdowns */
+  fetch(API + '/locations').then((r) => r.json()).then((names) => {
+    const s1 = document.getElementById('design-src');
+    const s2 = document.getElementById('design-tgt');
+    names.forEach((n) => {
+      s1.appendChild(new Option(n, n));
+      s2.appendChild(new Option(n, n));
+    });
+    if (names.length) { s1.selectedIndex = 0; s2.selectedIndex = Math.min(1, names.length - 1); }
+  }).catch(() => {});
+
+  document.getElementById('design-maxm').addEventListener('input', (e) => {
+    document.getElementById('design-maxm-val').textContent = e.target.value;
+  });
+  document.getElementById('design-iter').addEventListener('input', (e) => {
+    document.getElementById('design-iter-val').textContent = e.target.value;
+  });
+
+  document.getElementById('design-run').addEventListener('click', () => {
+    const msg = document.getElementById('design-msg');
+    msg.style.display = 'block';
+    msg.textContent = 'Design engine available via CLI';
+  });
+
+  async function readApiError(res) {
+    const j = await res.json().catch(() => ({}));
+    const d = j.detail;
+    if (typeof d === 'string') return d;
+    if (Array.isArray(d)) return d.map((x) => (x && x.msg ? x.msg : JSON.stringify(x))).join('; ');
+    return res.statusText || 'Request failed';
+  }
+
+  const plotLayout = {
+    paper_bgcolor: 'rgba(0,0,0,0)',
+    plot_bgcolor: 'rgba(0,0,0,0)',
+    font: { family: 'Inter, sans-serif', color: '#ffffff', size: 11 },
+    margin: { l: 120, r: 24, t: 24, b: 40 },
+    xaxis: { gridcolor: 'rgba(255,255,255,0.06)', zeroline: false, color: 'rgba(255,255,255,0.5)' },
+    yaxis: { gridcolor: 'rgba(255,255,255,0.06)', zeroline: false, color: 'rgba(255,255,255,0.5)' },
+  };
+
+  function showLoading(id, on) {
+    document.getElementById(id).classList.toggle('show', on);
+  }
+
+  /* Predict */
+  document.getElementById('predict-run').addEventListener('click', async () => {
+    const seq = document.getElementById('predict-seq').value.trim().replace(/\s/g, '');
+    if (!seq) return;
+    showLoading('predict-loading', true);
+    document.getElementById('predict-results').classList.remove('show');
+    const predictInterpEl = document.getElementById('predict-interpretation');
+    if (predictInterpEl) {
+      predictInterpEl.hidden = true;
+      predictInterpEl.innerHTML = '';
+    }
+    try {
+      const res = await fetch(API + '/predict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sequence: seq }),
+      });
+      if (!res.ok) throw new Error(await readApiError(res));
+      const data = await res.json();
+      const preds = data.predictions;
+      const locs = Object.keys(preds).sort((a, b) => preds[b] - preds[a]);
+      const above = (data.locations_above_threshold || []).length;
+
+      const mg = document.getElementById('predict-metrics');
+      mg.innerHTML = '';
+      const m1 = document.createElement('div'); m1.className = 'metric-card'; m1.innerHTML = '<div class="mk">Top prediction</div><div class="mv">' + escapeHtml(data.top_location) + '</div>';
+      const m2 = document.createElement('div'); m2.className = 'metric-card'; m2.innerHTML = '<div class="mk">Confidence</div><div class="mv">' + data.top_confidence.toFixed(3) + '</div>';
+      const m3 = document.createElement('div'); m3.className = 'metric-card'; m3.innerHTML = '<div class="mk">Above threshold</div><div class="mv">' + above + '</div>';
+      mg.appendChild(m1); mg.appendChild(m2); mg.appendChild(m3);
+
+      const colors = locs.map((k) => (preds[k] >= 0.5 ? '#22D3EE' : '#334155'));
+      Plotly.newPlot('plot-locations', [{
+        type: 'bar',
+        orientation: 'h',
+        y: locs,
+        x: locs.map((k) => preds[k]),
+        marker: { color: colors },
+      }], Object.assign({}, plotLayout, {
+        shapes: [{
+          type: 'line',
+          xref: 'x',
+          yref: 'paper',
+          x0: 0.5,
+          x1: 0.5,
+          y0: 0,
+          y1: 1,
+          line: { color: 'rgba(255,255,255,0.25)', width: 1, dash: 'dash' },
+        }],
+        xaxis: Object.assign({}, plotLayout.xaxis, { range: [0, 1] }),
+        yaxis: Object.assign({}, plotLayout.yaxis, { automargin: true }),
+      }), { responsive: true, displayModeBar: false });
+
+      if (predictInterpEl) {
+        const summ = data.interpretation_summary;
+        if (summ != null && String(summ).trim() !== '') {
+          let html = '';
+          if (data.llm_enhanced) {
+            html += '<div class="llm-interpret-label">AI interpretation</div>';
+          }
+          html += '<div class="llm-interpret-text">' + escapeHtml(String(summ)) + '</div>';
+          predictInterpEl.innerHTML = html;
+          predictInterpEl.hidden = false;
+        } else {
+          predictInterpEl.hidden = true;
+          predictInterpEl.innerHTML = '';
+        }
+      }
+
+      const attn = data.attention_weights || [];
+      const L = attn.length;
+      Plotly.newPlot('plot-attention', [{
+        type: 'heatmap',
+        z: [attn],
+        x: Array.from({ length: L }, (_, i) => i + 1),
+        y: ['Attention'],
+        colorscale: [[0, '#0a0f1e'], [1, '#22D3EE']],
+        showscale: true,
+      }], Object.assign({}, plotLayout, { yaxis: { showticklabels: false } }), { responsive: true, displayModeBar: false });
+
+      document.getElementById('predict-results').classList.add('show');
+      [m1, m2, m3].forEach((el, i) => setTimeout(() => el.classList.add('in'), 100 * i));
+    } catch (e) {
+      alert('Predict failed: ' + e.message);
+    } finally {
+      showLoading('predict-loading', false);
+    }
+  });
+
+  function escapeHtml(s) {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  function parseMutations(str) {
+    const parts = str.split(',').map((p) => p.trim()).filter(Boolean);
+    const out = [];
+    const re = /^([A-Z])(\d+)([A-Z])$/i;
+    for (const p of parts) {
+      const m = p.match(re);
+      if (!m) throw new Error('Invalid mutation: ' + p);
+      out.push({ position: parseInt(m[2], 10), original: m[1].toUpperCase(), mutant: m[3].toUpperCase() });
+    }
+    return out;
+  }
+
+  document.getElementById('variant-run').addEventListener('click', async () => {
+    const seq = document.getElementById('variant-seq').value.trim().replace(/\s/g, '');
+    const mutStr = document.getElementById('variant-muts').value.trim();
+    if (!seq || !mutStr) return;
+    let mutations;
+    try { mutations = parseMutations(mutStr); } catch (e) { alert(e.message); return; }
+    showLoading('variant-loading', true);
+    document.getElementById('variant-results').classList.remove('show');
+    try {
+      const res = await fetch(API + '/variant-effect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sequence: seq, mutations }),
+      });
+      if (!res.ok) throw new Error(await readApiError(res));
+      const d = await res.json();
+      const risk = (d.mislocalization_risk || 'none').toLowerCase();
+      const rb = document.getElementById('variant-risk');
+      rb.className = 'risk-banner ' + (risk === 'high' ? 'high' : risk === 'medium' ? 'medium' : risk === 'low' ? 'low' : 'none');
+      let rbHtml = '';
+      if (d.llm_enhanced) {
+        rbHtml += '<div class="llm-interpret-label">AI interpretation</div>';
+      }
+      rbHtml += '<div>' + risk.toUpperCase() + ' — ' + escapeHtml(d.clinical_summary || '') + '</div>';
+      rb.innerHTML = rbHtml;
+
+      const labels = Object.keys(d.deltas || {});
+      const topGain = labels.reduce((a, b) => (d.deltas[a] > d.deltas[b] ? a : b));
+      const topLoss = labels.reduce((a, b) => (d.deltas[a] < d.deltas[b] ? a : b));
+
+      const mg = document.getElementById('variant-metrics');
+      mg.innerHTML = '';
+      const a1 = document.createElement('div'); a1.className = 'metric-card'; a1.innerHTML = '<div class="mk">Most affected</div><div class="mv">' + escapeHtml(d.most_affected_location) + '</div>';
+      const a2 = document.createElement('div'); a2.className = 'metric-card'; a2.innerHTML = '<div class="mk">Largest gain</div><div class="mv gain">' + escapeHtml(topGain) + ' (' + d.deltas[topGain].toFixed(3) + ')</div>';
+      const a3 = document.createElement('div'); a3.className = 'metric-card'; a3.innerHTML = '<div class="mk">Largest loss</div><div class="mv loss">' + escapeHtml(topLoss) + ' (' + d.deltas[topLoss].toFixed(3) + ')</div>';
+      mg.appendChild(a1); mg.appendChild(a2); mg.appendChild(a3);
+
+      const locOrder = labels.slice().sort((a, b) => d.original_predictions[b] - d.original_predictions[a]);
+      Plotly.newPlot('plot-variant-bars', [
+        { type: 'bar', name: 'Original', orientation: 'h', y: locOrder, x: locOrder.map((k) => d.original_predictions[k]), marker: { color: '#334155' } },
+        { type: 'bar', name: 'Mutant', orientation: 'h', y: locOrder, x: locOrder.map((k) => d.mutant_predictions[k]), marker: { color: '#22D3EE' } },
+      ], Object.assign({}, plotLayout, { barmode: 'group', legend: { orientation: 'h', y: 1.1 } }), { responsive: true, displayModeBar: false });
+
+      const sigHtml = '<pre>' + escapeHtml(JSON.stringify({ disrupted: d.signals_disrupted, gained: d.signals_gained, original: d.signals_original, mutant: d.signals_mutant }, null, 2)) + '</pre>';
+      document.getElementById('variant-signal').innerHTML = sigHtml;
+
+      const oAtt = d.original_attention || [];
+      const mAtt = d.mutant_attention || [];
+      const n = oAtt.length;
+      const x = Array.from({ length: n }, (_, i) => i + 1);
+      Plotly.newPlot('plot-attn-orig', [{ type: 'scatter', mode: 'lines', x, y: oAtt, line: { color: '#334155', width: 2 }, fill: 'tozeroy', fillcolor: 'rgba(51,65,85,0.3)' }], Object.assign({}, plotLayout, { title: { text: 'Original attention', font: { size: 12, color: 'rgba(255,255,255,0.5)' } } }), { responsive: true, displayModeBar: false });
+      Plotly.newPlot('plot-attn-mut', [{ type: 'scatter', mode: 'lines', x, y: mAtt, line: { color: '#22D3EE', width: 2 }, fill: 'tozeroy', fillcolor: 'rgba(34,211,238,0.15)' }], Object.assign({}, plotLayout, { title: { text: 'Mutant attention', font: { size: 12, color: 'rgba(255,255,255,0.5)' } } }), { responsive: true, displayModeBar: false });
+
+      document.getElementById('variant-results').classList.add('show');
+      [a1, a2, a3].forEach((el, i) => setTimeout(() => el.classList.add('in'), 100 * i));
+    } catch (e) {
+      alert('Variant effect failed: ' + e.message);
+    } finally {
+      showLoading('variant-loading', false);
+    }
+  });
+})();
+  </script>
+
+  <script>
+(function initThree() {
+  if (typeof THREE === 'undefined') return;
+  const container = document.getElementById('canvas-bg');
+  const W = window.innerWidth;
+  const H = window.innerHeight;
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(50, W / H, 0.1, 200);
+  camera.position.set(0, 0, 30);
+  window.cameraTargetZ = 30;
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setSize(W, H);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  container.appendChild(renderer.domElement);
+
+  const proteinGroup = new THREE.Group();
+  proteinGroup.position.set(0, 0, 0);
+  scene.add(proteinGroup);
+
+  const RES = 80;
+  const helixRadius = 3.5;
+  const pitch = 0.35;
+  const yStep = 0.18;
+  const sphereR = 0.28;
+  const cylR = 0.08;
+  const cyan = new THREE.Color(0x22d3ee);
+  const emerald = new THREE.Color(0x34d399);
+
+  function mixColor(t) {
+    const c = new THREE.Color();
+    return c.copy(cyan).lerp(emerald, t);
+  }
+
+  const positions = [];
+  for (let i = 0; i < RES; i++) {
+    const theta = i * pitch;
+    const x = helixRadius * Math.cos(theta);
+    const z = helixRadius * Math.sin(theta);
+    const y = i * yStep - (RES * yStep) / 2;
+    positions.push(new THREE.Vector3(x, y, z));
+  }
+
+  {
+    let cx = 0;
+    let cy = 0;
+    let cz = 0;
+    const n = positions.length;
+    for (let i = 0; i < n; i++) {
+      cx += positions[i].x;
+      cy += positions[i].y;
+      cz += positions[i].z;
+    }
+    cx /= n;
+    cy /= n;
+    cz /= n;
+    for (let i = 0; i < n; i++) {
+      positions[i].x -= cx;
+      positions[i].y -= cy;
+      positions[i].z -= cz;
+    }
+  }
+
+  function addCylinder(p1, p2, color) {
+    const dir = new THREE.Vector3().subVectors(p2, p1);
+    const len = dir.length();
+    if (len < 1e-6) return;
+    const geom = new THREE.CylinderGeometry(cylR, cylR, len, 8);
+    const mat = new THREE.MeshPhongMaterial({ color, shininess: 40 });
+    const mesh = new THREE.Mesh(geom, mat);
+    const mid = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5);
+    mesh.position.copy(mid);
+    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
+    proteinGroup.add(mesh);
+  }
+
+  for (let i = 0; i < RES; i++) {
+    const t = i / (RES - 1);
+    const col = mixColor(t);
+    const sph = new THREE.Mesh(
+      new THREE.SphereGeometry(sphereR, 16, 16),
+      new THREE.MeshPhongMaterial({ color: col, shininess: 50 })
+    );
+    sph.position.copy(positions[i]);
+    proteinGroup.add(sph);
+    if (i < RES - 1) addCylinder(positions[i], positions[i + 1], col);
+  }
+
+  for (let i = 0; i < RES; i += 4) {
+    const t = i / (RES - 1);
+    const col = mixColor(t);
+    const theta = i * pitch;
+    const tx = -Math.sin(theta);
+    const tz = Math.cos(theta);
+    const branchLen = 0.85;
+    const p0 = positions[i];
+    const p1 = new THREE.Vector3(p0.x + tx * branchLen, p0.y + 0.05, p0.z + tz * branchLen);
+    addCylinder(p0, p1, col);
+    const sc = new THREE.Mesh(
+      new THREE.SphereGeometry(sphereR * 0.55, 12, 12),
+      new THREE.MeshPhongMaterial({ color: col, shininess: 40 })
+    );
+    sc.position.copy(p1);
+    proteinGroup.add(sc);
+  }
+
+  const particleGeom = new THREE.BufferGeometry();
+  const pCount = 300;
+  const pPos = new Float32Array(pCount * 3);
+  const pVel = [];
+  for (let i = 0; i < pCount; i++) {
+    pPos[i * 3] = (Math.random() - 0.5) * 40;
+    pPos[i * 3 + 1] = (Math.random() - 0.5) * 40;
+    pPos[i * 3 + 2] = (Math.random() - 0.5) * 40;
+    pVel.push({
+      x: (Math.random() - 0.5) * 0.015,
+      y: (Math.random() - 0.5) * 0.015,
+      z: (Math.random() - 0.5) * 0.015,
+    });
+  }
+  particleGeom.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+  const particleMat = new THREE.PointsMaterial({ color: 0x22d3ee, size: 0.12, transparent: true, opacity: 0.55, sizeAttenuation: true });
+  const particles = new THREE.Points(particleGeom, particleMat);
+  scene.add(particles);
+
+  const amb = new THREE.AmbientLight(0x334455, 0.9);
+  scene.add(amb);
+  const d1 = new THREE.DirectionalLight(0x22d3ee, 0.85);
+  d1.position.set(8, 12, 6);
+  scene.add(d1);
+  const d2 = new THREE.DirectionalLight(0x34d399, 0.65);
+  d2.position.set(-8, -10, -6);
+  scene.add(d2);
+
+  let mouseX = 0;
+  let mouseY = 0;
+  document.addEventListener('mousemove', (e) => {
+    mouseX = (e.clientX / window.innerWidth) * 2 - 1;
+    mouseY = (e.clientY / window.innerHeight) * 2 - 1;
+  });
+
+  let autoRotY = 0;
+  let t0 = performance.now();
+  function animate(now) {
+    requestAnimationFrame(animate);
+    const tz = window.cameraTargetZ != null ? window.cameraTargetZ : 30;
+    camera.position.x = 0;
+    camera.position.y = 0;
+    camera.position.z += (tz - camera.position.z) * 0.06;
+    camera.lookAt(0, 0, 0);
+
+    const dt = (now - t0) * 0.001;
+    t0 = now;
+    autoRotY += 0.15 * dt;
+    proteinGroup.rotation.y = autoRotY + mouseX * 0.35;
+    proteinGroup.rotation.x = mouseY * 0.18;
+    proteinGroup.rotation.z = 0;
+
+    const arr = particleGeom.attributes.position.array;
+    for (let i = 0; i < pCount; i++) {
+      arr[i * 3] += pVel[i].x * dt * 10;
+      arr[i * 3 + 1] += pVel[i].y * dt * 10;
+      arr[i * 3 + 2] += pVel[i].z * dt * 10;
+      if (Math.abs(arr[i * 3]) > 22) pVel[i].x *= -1;
+      if (Math.abs(arr[i * 3 + 1]) > 22) pVel[i].y *= -1;
+      if (Math.abs(arr[i * 3 + 2]) > 22) pVel[i].z *= -1;
+    }
+    particleGeom.attributes.position.needsUpdate = true;
+
+    renderer.render(scene, camera);
+  }
+  animate(performance.now());
+
+  window.addEventListener('resize', () => {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+  });
+})();
+  </script>
+</body>
+</html>

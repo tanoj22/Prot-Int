@@ -1,0 +1,38 @@
+# Data
+data/
+*.npy
+*.npz
+*.pt
+*.pth
+
+# Models
+models/
+
+# Embeddings
+embeddings/
+
+# MLflow
+mlruns/
+mlflow.db
+
+# Environment
+.env
+.venv*/
+venv/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# HuggingFace cache
+cache/
