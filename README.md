@@ -1,3 +1,14 @@
+---
+title: ProtLoc-AI
+emoji: 🧬
+colorFrom: cyan
+colorTo: green
+sdk: docker
+pinned: false
+license: mit
+app_port: 7860
+---
+
 # ProtLoc-AI: Protein Variant Mislocalization Predictor
 
 AI-powered platform that predicts how disease mutations alter protein subcellular localization using ESM-2 protein language models with residue-level attention.
