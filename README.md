@@ -55,6 +55,16 @@ uvicorn app.api:app --host 0.0.0.0 --port 8000
 # Open http://localhost:8000
 ```
 
+## Model Weights
+
+Model checkpoints are intentionally excluded from GitHub to keep the repository lightweight.  
+The API expects this file at runtime:
+
+- `models/best_residue_model.pt`
+
+If the file is missing, API startup will fail with a checkpoint-not-found error.  
+To reproduce weights locally, run training and place/save the best checkpoint to the path above before starting `uvicorn`.
+
 ## Project Structure
 
 ```text
