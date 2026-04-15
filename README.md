@@ -25,7 +25,7 @@ Protein mislocalization causes disease across multiple systems, including cystic
 
 ## Live Demo
 
-- Hugging Face Space: [Coming soon](https://huggingface.co/spaces/your-org/protloc-ai)
+- Hugging Face Space: https://huggingface.co/spaces/Tanoj22/protloc-ai
 - Screenshot placeholder: `docs/images/demo-placeholder.png`
 
 ## Key Features
@@ -54,7 +54,7 @@ Protein mislocalization causes disease across multiple systems, including cystic
 ## Quick Start
 
 ```bash
-git clone https://github.com/your-org/protloc-ai.git
+git clone https://github.com/tanoj22/Prot-Int.git
 cd protloc-ai
 pip install -r requirements.txt
 # Generate embeddings
